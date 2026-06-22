@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What Dage Read</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #FDF6E3;
+      color: #3E2723;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      line-height: 1.7;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid #D7CCC8;
+    }
+    h1 {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 2.8rem;
+      color: #4E342E;
+      letter-spacing: 1px;
+    }
+    .subtitle {
+      font-style: italic;
+      color: #795548;
+      margin-top: 0.3rem;
+      font-size: 1.1rem;
+    }
+    .counter {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: #8D6E63;
+    }
+    .counter span {
+      font-weight: bold;
+      font-size: 1.4rem;
+      color: #4E342E;
+    }
+    .year-section { margin-bottom: 2.5rem; }
+    .year-section h2 {
+      font-family: Georgia, serif;
+      font-size: 1.6rem;
+      color: #5D4037;
+      border-bottom: 1px solid #D7CCC8;
+      padding-bottom: 0.4rem;
+      margin-bottom: 1rem;
+    }
+    .book {
+      padding: 0.8rem 0;
+      border-bottom: 1px dotted #BCAAA4;
+    }
+    .book:last-child { border-bottom: none; }
+    .book-num {
+      color: #A1887F;
+      font-size: 0.85rem;
+      margin-right: 0.5rem;
+    }
+    .book-title {
+      font-family: Georgia, serif;
+      font-weight: bold;
+      font-size: 1.05rem;
+      color: #3E2723;
+    }
+    .book-author {
+      font-style: italic;
+      color: #6D4C41;
+    }
+    .book-date {
+      font-size: 0.85rem;
+      color: #A1887F;
+      margin-left: 0.5rem;
+    }
+    .book-note {
+      display: block;
+      font-size: 0.9rem;
+      color: #795548;
+      margin-top: 0.2rem;
+      padding-left: 1.8rem;
+    }
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 2px solid #D7CCC8;
+      color: #A1887F;
+      font-style: italic;
+      font-size: 1.1rem;
+    }
+    .loading {
+      text-align: center;
+      color: #A1887F;
+      font-style: italic;
+      padding: 2rem;
+    }
+    @media (max-width: 500px) {
+      h1 { font-size: 2rem; }
+      body { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>What Dage Read</h1>
+  <p class="subtitle">A reading life, one book at a time.</p>
+  <p class="counter">📚 <span id="total">...</span> books and counting</p>
+</header>
+
+<div id="books">
+  <p class="loading">Loading books...</p>
+</div>
+
+<footer>For my kids. 📚</footer>
+
+<script>
+// ============================================================
+// 🔧 PASTE YOUR GOOGLE SHEET CSV URL BELOW (the ONLY thing you edit!)
+// ============================================================
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSSn06Ltq5Ouaztp-bVh-cQgCl9lYJDOtuT3VPkA11RWy2_nsSTYwqqnEuHptvXXGnn7MqlpvP6rd0e/pub?output=csv';
+
+// Parse CSV text into rows
+function parseCSV(text) {
+  const lines = text.split('\n').filter(line => line.trim());
+  return lines.map(line => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQuotes = !inQuotes; }
+      else if (line[i] === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+      else { current += line[i]; }
+    }
+    result.push(current.trim());
+    return result;
+  });
+}
+
+// Extract year from date string like "Jan 2025" or "2025-01-15"
+function getYear(dateStr) {
+  const match = dateStr.match(/(\d{4})/);
+  return match ? match[1] : 'Unknown';
+}
+
+// Fetch and render
+fetch(SHEET_URL)
+  .then(res => res.text())
+  .then(csv => {
+    const rows = parseCSV(csv);
+    const header = rows[0]; // skip header row
+    const books = rows.slice(1).filter(r => r[1]); // skip empty titles
+
+    document.getElementById('total').textContent = books.length;
+
+    // Group by year (from Date Finished column)
+    const byYear = {};
+    books.forEach(book => {
+      const year = getYear(book[3] || '');
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(book);
+    });
+
+    // Sort years descending
+    const sortedYears = Object.keys(byYear).sort((a, b) => b - a);
+
+    let html = '';
+    sortedYears.forEach(year => {
+      html += `<div class="year-section"><h2>${year}</h2>`;
+      byYear[year].forEach(book => {
+        const [num, title, author, date, note] = book;
+        html += `
+          <div class="book">
+            <span class="book-num">#${num}</span>
+            <span class="book-title">${title}</span>
+            <span class="book-author">— ${author}</span>
+            <span class="book-date">${date}</span>
+            ${note ? `<span class="book-note">${note}</span>` : ''}
+          </div>`;
+      });
+      html += '</div>';
+    });
+
+    document.getElementById('books').innerHTML = html;
+  })
+  .catch(err => {
+    document.getElementById('books').innerHTML =
+      '<p class="loading">Could not load books. Check your Sheet URL.</p>';
+  });
+</script>
+
+</body>
